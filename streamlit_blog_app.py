@@ -15,6 +15,7 @@ class BlogState(TypedDict):
     title: str
     outline: str
     content: str
+    evaluation: str
 
 # Node functions
 def create_outline(state: BlogState) -> BlogState:
@@ -42,17 +43,32 @@ def create_blog(state: BlogState) -> BlogState:
     state["content"] = content
     return state
 
+def evaluate_blog(state: BlogState) -> BlogState:
+    # extract title and content from state
+    title = state["title"]
+    content = state["content"]
+    
+    # call the model to evaluate the blog
+    prompt = f"Evaluate the blog post about the topic: {title} with the following content: {content}"
+    evaluation = model.invoke(prompt).content
+    
+    # update the state with the evaluation
+    state["evaluation"] = evaluation
+    return state
+
 # Create a graph
 graph = StateGraph(BlogState)
 
 # Create nodes
 graph.add_node("create_outline", create_outline)
 graph.add_node("create_blog", create_blog)
+graph.add_node("evaluate_blog", evaluate_blog)
 
 # Add edges
 graph.add_edge(START, "create_outline")
 graph.add_edge("create_outline", "create_blog")
-graph.add_edge("create_blog", END)
+graph.add_edge("create_blog", "evaluate_blog")
+graph.add_edge("evaluate_blog", END)
 
 # Compile the graph
 workflow = graph.compile()
@@ -72,18 +88,24 @@ if st.button("🚀 Blog Generate Karein", type="primary"):
         st.error("❌ Pehle title likhein!")
     else:
         with st.spinner("⏳ Blog generate ho raha hai..."):
-            initial_state = {"title": title, "outline": "", "content": ""}
+            initial_state = {"title": title}
             final_state = workflow.invoke(initial_state)
         
         st.success("✅ Blog generate ho gaya!")
         
-        col1, col2 = st.columns(2)
+        # Display Outline
+        st.subheader("📋 Outline")
+        st.markdown(final_state["outline"])
         
-        with col1:
-            st.subheader("📋 Outline")
-            st.markdown(final_state["outline"])
+        st.divider()
         
-        with col2:
-            st.subheader("📄 Blog Content")
-            st.markdown(final_state["content"])
+        # Display Blog Content
+        st.subheader("📄 Blog Content")
+        st.markdown(final_state["content"])
+        
+        st.divider()
+        
+        # Display Evaluation
+        st.subheader("⭐ Blog Evaluation")
+        st.markdown(final_state["evaluation"])
 
